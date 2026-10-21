@@ -1,0 +1,81 @@
+name: Install and exercise fixed native bundles
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_ANALYTICS: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+      HOMEBREW_DEVELOPER: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Select the preinstalled Homebrew and record source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          git rev-parse HEAD > out/source.txt
+          git rev-parse HEAD^{tree} > out/tree.txt
+          git status --porcelain --untracked-files=no > out/source-status.txt
+          test ! -s out/source-status.txt
+          if test "$RUNNER_OS" = Linux; then
+            test "$(uname -m)" = x86_64
+            echo /home/linuxbrew/.linuxbrew/bin >> "$GITHUB_PATH"
+          else
+            test "$(uname -m)" = arm64
+            echo /opt/homebrew/bin >> "$GITHUB_PATH"
+          fi
+          printf 'HOMEBREW_CACHE=%s\n' "$RUNNER_TEMP/gooo-homebrew-cache" >> "$GITHUB_ENV"
+      - name: Load only this checked-out tap and inspect the formula
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew --version > out/homebrew-version.txt
+          brew tap kimjooyoon/gooo "file://$GITHUB_WORKSPACE"
+          test "$(git -C "$(brew --repo kimjooyoon/gooo)" rev-parse HEAD)" = "$(cat out/source.txt)"
+          brew info --json=v2 kimjooyoon/gooo/gooo-service-grant-mcp > out/formula.json
+          brew style Formula/gooo-service-grant-mcp.rb > out/style.txt 2>&1
+      - name: Install the checksum-pinned bundle and test actual stdio
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install --formula --skip-link kimjooyoon/gooo/gooo-service-grant-mcp > out/install.txt 2>&1
+          brew test --verbose kimjooyoon/gooo/gooo-service-grant-mcp > out/test.txt 2>&1
+          brew audit --strict --installed kimjooyoon/gooo/gooo-service-grant-mcp > out/audit.txt 2>&1
+          brew info --json=v2 kimjooyoon/gooo/gooo-service-grant-mcp > out/installed-formula.json
+      - name: Remove this job's installed formula and temporary tap
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if brew list --formula --versions gooo-service-grant-mcp >/dev/null 2>&1; then
+            brew uninstall --formula kimjooyoon/gooo/gooo-service-grant-mcp > out/uninstall.txt 2>&1
+          fi
+          if brew tap | grep -Fxq kimjooyoon/gooo; then
+            brew untap kimjooyoon/gooo > out/untap.txt 2>&1
+          fi
+          test ! -d "$(brew --cellar)/gooo-service-grant-mcp"
+          test ! -d "$(brew --repo)/Library/Taps/kimjooyoon/homebrew-gooo"
+          printf '%s\n' OWNED_FORMULA_AND_TAP_REMOVED > out/cleanup.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: homebrew-install-${{ matrix.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: out/
+          if-no-files-found: error
