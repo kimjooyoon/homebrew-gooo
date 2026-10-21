@@ -26,13 +26,30 @@ class GoooServiceGrantMcp < Formula
 
   def install
     libexec.install Dir["*"]
+    # A prefix license prevents Homebrew moving licenses out of the bundle.
+    cp libexec/"LICENSE-transport-BSD", prefix/"LICENSE-transport-BSD"
     bin.write_exec_script libexec/"gooo-service-grant-mcp"
   end
 
   test do
     require "English"
+    require "digest"
     require "json"
     require "timeout"
+
+    manifest = JSON.parse((libexec/"BUNDLE.json").read)
+    assert_equal "fceb89f8b53eabd6687d16258d7cee89853c2cfe", manifest.fetch("source_commit")
+    members = manifest.fetch("members")
+    assert_equal 62, members.length
+    assert_equal (members.keys + ["BUNDLE.json"]).sort, libexec.children.map { |path| path.basename.to_s }.sort
+    members.each do |name, expected|
+      path = libexec/name
+      assert_predicate path, :file?
+      refute_predicate path, :symlink?
+      assert_equal expected.fetch("bytes"), path.size
+      assert_equal expected.fetch("mode"), path.stat.mode & 0777
+      assert_equal expected.fetch("sha256"), Digest::SHA256.file(path).hexdigest
+    end
 
     (testpath/"empty-bin").mkpath
     child_env = { "PATH" => (testpath/"empty-bin").to_s, "GOROOT" => nil, "GOTOOLCHAIN" => nil }

@@ -55,9 +55,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          brew install --formula --skip-link kimjooyoon/gooo/gooo-service-grant-mcp > out/install.txt 2>&1
+          brew install --formula kimjooyoon/gooo/gooo-service-grant-mcp > out/install.txt 2>&1
           brew test --verbose kimjooyoon/gooo/gooo-service-grant-mcp > out/test.txt 2>&1
-          brew audit --strict --installed kimjooyoon/gooo/gooo-service-grant-mcp > out/audit.txt 2>&1
+          brew audit --strict --formula kimjooyoon/gooo/gooo-service-grant-mcp > out/audit.txt 2>&1
           brew info --json=v2 kimjooyoon/gooo/gooo-service-grant-mcp > out/installed-formula.json
       - name: Remove this job's installed formula and temporary tap
         if: always()

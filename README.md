@@ -42,7 +42,8 @@ brew test kimjooyoon/gooo/gooo-service-grant-mcp
 
 The formula test opens actual MCP stdio sessions with Go absent from the child
 PATH, exercises default/optional tool discovery, checks a complete seven-field
-decision and rejects malformed arguments. It is a finite installation smoke
+decision and rejects malformed arguments. It also checks every installed bundle
+member against its original byte hash, size and mode. It is a finite installation smoke
 test; the [upstream release](https://github.com/kimjooyoon/gooo-go-ports/releases/tag/v0.1.0-preview.16)
 has its own broader source and native validation.
 
