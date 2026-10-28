@@ -63,6 +63,11 @@ It is a finite installation smoke test; the
 [upstream release](https://github.com/kimjooyoon/gooo-go-ports/releases/tag/v0.1.0-preview.17)
 has its own broader source and native validation.
 
+The 2025-11-25 sessions use `initialize` and the initialized notification. The
+2026-07-28 sessions use `server/discover` and carry version, client identity and
+capabilities in `_meta` on every request. These exercise both supported modes;
+negotiating a legacy fallback is not a test of the newer protocol.
+
 For install/launcher problems, open an issue in this tap. For a policy example
 or language question, use [Gooo Go Ports feedback](https://github.com/kimjooyoon/gooo-go-ports/issues/new?template=problem.yml)
 or the [Gooo language repository](https://github.com/kimjooyoon/meta-ontology-go).

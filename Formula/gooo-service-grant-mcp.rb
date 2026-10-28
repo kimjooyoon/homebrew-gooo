@@ -59,6 +59,13 @@ class GoooServiceGrantMcp < Formula
       args = flags.select.with_index { |_flag, index| bits[index] == 1 }
       IO.popen(child_env, [bin/"gooo-service-grant-mcp", *args], "r+") do |io|
         exchange = lambda do |id, method, params|
+          if protocol == "2026-07-28"
+            params = params.merge("_meta" => {
+              "io.modelcontextprotocol/protocolVersion"    => protocol,
+              "io.modelcontextprotocol/clientInfo"         => { name: "homebrew-test", version: "1" },
+              "io.modelcontextprotocol/clientCapabilities" => {},
+            })
+          end
           io.puts JSON.generate(jsonrpc: "2.0", id: id, method: method, params: params)
           io.flush
           reply = Timeout.timeout(15) { JSON.parse(io.readline) }
@@ -67,14 +74,20 @@ class GoooServiceGrantMcp < Formula
           reply.fetch("result")
         end
 
-        initialized = exchange.call(1, "initialize", {
-          protocolVersion: protocol, capabilities: {},
-          clientInfo: { name: "homebrew-test", version: "1" }
-        })
-        assert_equal "gooo-service-grant", initialized.dig("serverInfo", "name")
-        assert_equal protocol, initialized.fetch("protocolVersion")
-        io.puts JSON.generate(jsonrpc: "2.0", method: "notifications/initialized")
-        io.flush
+        if protocol == "2025-11-25"
+          initialized = exchange.call(1, "initialize", {
+            protocolVersion: protocol, capabilities: {},
+            clientInfo: { name: "homebrew-test", version: "1" }
+          })
+          assert_equal "gooo-service-grant", initialized.dig("serverInfo", "name")
+          assert_equal protocol, initialized.fetch("protocolVersion")
+          io.puts JSON.generate(jsonrpc: "2.0", method: "notifications/initialized")
+          io.flush
+        else
+          discovered = exchange.call(1, "server/discover", {})
+          assert_includes discovered.fetch("supportedVersions"), protocol
+          assert_equal "gooo-service-grant", discovered.dig("_meta", "io.modelcontextprotocol/serverInfo", "name")
+        end
         tools = exchange.call(2, "tools/list", {}).fetch("tools").map { |tool| tool.fetch("name") }
         expected_tools = ["assess_service_grant"]
         expected_tools << "assess_service_grant_change" if args.include?("--many-required")
