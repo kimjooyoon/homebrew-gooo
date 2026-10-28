@@ -2,6 +2,7 @@ name: Install and exercise fixed native bundles
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
